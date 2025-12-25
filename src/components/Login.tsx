@@ -9,22 +9,44 @@ import {
   Platform,
   Alert,
 } from 'react-native';
+import { API_URL } from '../constants';
+import { storeUser } from '../StoredData/User';
 
 const Login = ({ navigation }: any) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleLogin = () => {
-    // Basic validation logic
+  const handleLogin = async () => {
+    // Basic validation
     if (email === '' || password === '') {
+      // alert('Please enter email and password');
       return;
     }
-    
-    // Logic to verify credentials would go here
-    console.log("Logging in with:", email, password);
-    
-    // On success, navigate to the Dashboard
-    navigation.replace('Dashboard'); 
+
+    try {
+      const formBody = `username=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`;
+      const response = await fetch(`${API_URL}/auth/medvault/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formBody,
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log('Login successful:', data);
+        storeUser(data.user, data.access_token)
+        navigation.replace('Dashboard');
+      } else {
+        console.log('Login failed:', data);
+        // alert(data.message || 'Login failed');
+      }
+    } catch (error) {
+      console.error('Error logging in:', error);
+      // alert('Something went wrong. Please try again.');
+    }
   };
 
   return (

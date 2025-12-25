@@ -9,8 +9,9 @@ import {
     Platform,
     ScrollView,
 } from 'react-native';
+import { API_URL } from '../constants';
 
-const Register = ({ navigation }) => {
+const Register = ({ navigation }: any) => {
     const [formData, setFormData] = useState({
         fullName: '',
         email: '',
@@ -18,12 +19,45 @@ const Register = ({ navigation }) => {
         confirmPassword: '',
     });
 
-    const handleRegister = () => {
-        // Basic validation
-        if (!formData.email || !formData.password) {
+      const [loading, setLoading] = useState(false);
+
+
+    const handleRegister = async () => {
+        if (!formData.fullName || !formData.email || !formData.password || !formData.confirmPassword) {
             return;
         }
-        console.log("Registering user:", formData);
+
+        if (formData.password !== formData.confirmPassword) {
+            return;
+        }
+
+        setLoading(true);
+
+        try {
+            const response = await fetch(API_URL+'/auth/medvault/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    fullName: formData.fullName,
+                    email: formData.email,
+                    password: formData.password,
+                }),
+            });
+
+            const data = await response.json();
+            setLoading(false);
+
+            if (response.ok) {
+                navigation.navigate('Login'); // navigate to login screen
+            } else {
+                // Alert.alert('Error', data.message || 'Something went wrong');
+            }
+        } catch (error) {
+            setLoading(false);
+            console.error(error);
+        }
     };
 
     return (

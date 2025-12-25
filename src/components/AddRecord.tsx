@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity, StyleSheet,
     ScrollView, Alert, KeyboardAvoidingView, Platform,
     PermissionsAndroid
 } from 'react-native';
-import DocumentPicker, { DocumentPickerResponse } from 'react-native-document-picker';
+import * as DocumentPicker from '@react-native-documents/picker';
+import { API_URL } from '../constants';
+import { getStoredUser } from '../StoredData/User';
 
 const AddRecord = ({ navigation }: any) => {
     const [form, setForm] = useState({
         title: '',
-        category: '', // e.g., Lab Test, Surgery, Consultation
+        category: '',
         doctor: '',
         hospital: '',
         location: '',
@@ -20,10 +22,23 @@ const AddRecord = ({ navigation }: any) => {
         bp: '', // Blood Pressure
         weight: '',
         followUpDate: '',
+        user_id: "",
         notes: ''
     });
 
-    const [files, setFiles] = useState<DocumentPickerResponse[]>([]);
+    useEffect(() => {
+        getStoredUser()
+            .then(user => {
+                if (user) {
+                    setForm(prev => ({ ...prev, user_id: user.id }));
+                }
+                else {
+                    navigation.navigate('Login');
+                }
+            });
+    }, []);
+
+    const [files, setFiles] = useState<any[]>([]);
 
     const handleFilePick = async () => {
         if (Platform.OS === 'android') {
@@ -48,7 +63,7 @@ const AddRecord = ({ navigation }: any) => {
             });
             setFiles([...files, ...pickedFiles]);
         } catch (err) {
-            if (!DocumentPicker.isCancel(err)) console.error(err);
+            // if (!DocumentPicker.isCancel(err)) console.error(err);
         }
     };
 
@@ -56,13 +71,53 @@ const AddRecord = ({ navigation }: any) => {
         setFiles(files.filter((_, i) => i !== index));
     };
 
-    const saveToVault = () => {
+    const saveToVault = async () => {
         if (!form.title || !form.category) {
             Alert.alert("Missing Information", "Title and Category are required.");
             return;
         }
-        Alert.alert("Record Secured", "Medical activity and attachments are now locked.");
-        navigation.goBack();
+
+        try {
+            // Prepare JSON payload (ignore files for now)
+            const formData = new FormData();
+
+            // Append all fields from your form
+            Object.entries(form).forEach(([key, value]) => {
+                formData.append(key, value);
+            });
+
+            // If you have files to upload
+            files.forEach((file) => {
+                formData.append('files', {
+                    uri: file.uri,
+                    type: file.type,
+                    name: file.name,
+                } as any);
+            });
+
+            const response = await fetch(`${API_URL}/documents/medvault/med_records/`, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    // Do NOT set 'Content-Type'; fetch sets it automatically for multipart/form-data
+                },
+                body: formData,
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                Alert.alert("Record Secured", "Medical activity is now locked.");
+                navigation.goBack();
+            } else {
+                console.error('Error saving record:', data);
+                Alert.alert('Failed to save', data.message || 'Something went wrong');
+            }
+
+        } catch (error) {
+            console.error('Error:', error);
+            Alert.alert('Error', 'Something went wrong. Please try again.');
+        }
     };
 
     return (
